@@ -1,0 +1,9 @@
+[package]
+name = "pi-jingle-server"
+version = "0.1.0"
+edition = "2021"
+description = "Receiver server for pi-jingle remote event notifications"
+
+[dependencies]
+axum = "0.8"
+tokio = { version = "1", features = ["full"] }

@@ -27,7 +27,7 @@ use std::time::{Duration, Instant};
 
 use serde::Serialize;
 use tauri::{
-    Emitter, Manager, PhysicalPosition, PhysicalSize, State, WebviewUrl, WebviewWindow,
+    AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, State, WebviewUrl, WebviewWindow,
     WebviewWindowBuilder,
 };
 
@@ -411,7 +411,22 @@ pub fn taskboard_detail_sync(ui: State<'_, Arc<TaskboardWindow>>) -> Option<Card
 /// Exit the application. The close button in the header calls this.
 #[tauri::command]
 pub fn taskboard_quit(app: tauri::AppHandle) {
+    quit(&app);
+}
+
+/// Quit the program. The header close button and the tray menu call this.
+///
+/// The program has no taskbar entry, so a close request of the window hides it
+/// instead of closing it. This function marks a real exit first, so the close
+/// handler lets the exit through.
+pub fn quit(app: &AppHandle) {
+    QUITTING.store(true, Ordering::SeqCst);
     app.exit(0);
+}
+
+/// `true` after a quit request. A close request must then close the program.
+pub fn is_quitting() -> bool {
+    QUITTING.load(Ordering::SeqCst)
 }
 
 /// Start a window drag.
@@ -582,6 +597,9 @@ pub fn ipc_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send +
 // Window lifecycle
 // ---------------------------------------------------------------------------
 
+/// `true` after a quit request from the header button or the tray menu.
+static QUITTING: AtomicBool = AtomicBool::new(false);
+
 /// Place, show and start watching the window. Call this from the Tauri setup
 /// hook, after the window exists.
 pub fn attach(window: &WebviewWindow, ui: &Arc<TaskboardWindow>) -> tauri::Result<()> {
@@ -614,6 +632,41 @@ pub fn attach(window: &WebviewWindow, ui: &Arc<TaskboardWindow>) -> tauri::Resul
     });
 
     Ok(())
+}
+
+/// Show or hide the task board window. The tray icon calls this.
+///
+/// A hidden window keeps its geometry. A show expands a parked window, so the
+/// list is visible without a pointer hover. The detail window follows the task
+/// board.
+pub fn set_board_visible(app: &AppHandle, ui: &TaskboardWindow, visible: bool) {
+    let Some(window) = app.get_webview_window(WINDOW_LABEL) else {
+        return;
+    };
+
+    if !visible {
+        ui.clear_detail();
+        hide_detail_window(&window);
+        let _ = window.hide();
+        return;
+    }
+
+    if ui.is_parked() {
+        ui.stop_slide();
+        *lock(&ui.drag) = None;
+        ui.hover_armed.store(false, Ordering::SeqCst);
+        ui.peek.store(false, Ordering::SeqCst);
+        *lock(&ui.peek_outside_since) = None;
+        let screen = screen_for(&window);
+        if let Some(rect) = lock(&ui.snap).expand(screen) {
+            ui.mark_expanded();
+            emit_state(&window, false);
+            apply_rect(&window, rect);
+        }
+    }
+
+    let _ = window.show();
+    let _ = window.set_focus();
 }
 
 /// Re-check the screen bounds and the pointer state once.

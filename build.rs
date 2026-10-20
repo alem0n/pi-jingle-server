@@ -12,6 +12,7 @@ use std::path::Path;
 fn main() {
     println!("cargo:rerun-if-changed=sounds");
     println!("cargo:rerun-if-changed=ui");
+    println!("cargo:rerun-if-changed=icons");
     println!("cargo:rerun-if-changed=tauri.conf.json");
 
     // OUT_DIR = target/<profile>/build/<pkg>-<hash>/out → target/<profile>

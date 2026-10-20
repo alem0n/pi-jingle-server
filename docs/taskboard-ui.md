@@ -15,12 +15,14 @@ does not write files and it does not keep raw JSON.
 | `src/taskboard/snap.rs` | Pure geometry for the top-edge park, the band and the slide rectangle. |
 | `src/taskboard/detail.rs` | Pure geometry for the card detail panel: left or right of the window. |
 | `src/taskboard/window.rs` | Tauri windows, drag, park, detail panel and IPC commands. |
-| `src/desktop.rs` | Server thread, event bridge, Tauri setup. |
+| `src/desktop.rs` | Server thread, event bridge, Tauri setup and close policy. |
+| `src/desktop/tray.rs` | Tray icon, tray menu and the show or hide action. |
 | `ui/index.html`, `ui/app.js`, `ui/styles.css` | Task board page. |
 | `ui/detail.html`, `ui/detail.js`, `ui/detail.css` | Card detail page, in its own window. |
-| `tauri.conf.json` | Window definition, CSP, window label. |
+| `tauri.conf.json` | Window definition, CSP, window label, `skipTaskbar`. |
 | `capabilities/default.json` | Tauri capabilities for the task board and detail windows. |
 | `icons/icon.ico` | Window icon. |
+| `icons/icon.png` | Tray icon. The program embeds this file. |
 
 The `desktop` feature is enabled by default. A build without it has no Tauri
 dependency and no window:
@@ -177,6 +179,9 @@ The web layer calls these commands:
 | `taskboard_hide_detail` | none | none |
 | `taskboard_detail_sync` | none | `CardDetail` for a late page load |
 | `taskboard_quit` | none | none, the process exits |
+
+`taskboard_quit` calls `quit()`. The tray menu calls the same function.
+`quit()` sets the quitting flag, then it calls `AppHandle::exit(0)`.
 
 Rust sends the event `taskboard://window-state` with `{ "parked": bool }`
 after each phase change. `ipc_handler()` returns the handler for
@@ -475,8 +480,9 @@ the lamp from that flag with a timer. The lamp does not need a CSS animation,
 so it also blinks when the system asks for reduced motion.
 
 Close button: the top-left corner of the header has a close button. It calls
-`taskboard_quit`, which calls `AppHandle::exit(0)`. The receiver stops with the
-process. The board is in memory only, so a close discards the cards.
+`taskboard_quit`, which calls `quit()`. `quit()` sets the quitting flag and
+calls `AppHandle::exit(0)`. The receiver stops with the process. The board is in
+memory only, so a close discards the cards.
 
 ### Detail panel
 
@@ -562,6 +568,33 @@ Initial placement: the window starts at the top-right corner with the default
 size, 40 px below the top edge. The configuration file keeps the window hidden
 until `attach` applies the geometry.
 
+### Tray icon and taskbar
+
+The task board window has no taskbar entry. `skipTaskbar` is `true` in
+`tauri.conf.json`. `src/desktop/tray.rs` starts one tray icon.
+
+| Item | Behavior |
+|---|---|
+| Tray icon | `icons/icon.png`, embedded in the program. The program keeps one handle in its state, so the icon stays for the whole run. |
+| Left click | Hide a visible window, or show a hidden window. |
+| Menu item `Show or hide the task board` | The same as a left click. |
+| Menu item `Quit` | Stop the receiver and the program. |
+| Close request (Alt+F4) | Hide the window. The receiver and the tray icon continue. |
+| Header `×` button | Stop the receiver and the program. |
+
+A show from the tray expands a parked window, so the list is visible at once.
+A hidden window keeps its geometry, its cards and its revision. The detail
+window hides together with the task board.
+
+The close policy is in `src/desktop.rs`. A `CloseRequested` event for the task
+board window is prevented, and the window hides. `quit()` sets the quitting
+flag before it calls `AppHandle::exit(0)`. The close policy reads this flag, so
+it never blocks a real quit.
+
+The bridge and the receiver continue while the window is hidden. New cards
+arrive as usual. The page pulls a full snapshot on each tick, so the list is
+complete when the window comes back.
+
 ## 8. Decisions and edge cases
 
 | Case | Decision |
@@ -586,7 +619,11 @@ until `attach` applies the geometry.
 | Card arrives while parked | Start the band light blink. |
 | User opens the window | Stop the blink. The cards count as seen. |
 | Card arrives while expanded | No blink. The list is already on the screen. |
-| Close button | `taskboard_quit` calls `AppHandle::exit(0)`. The board is in memory only. |
+| Close button | `taskboard_quit` calls `quit()`, which sets the quitting flag and calls `AppHandle::exit(0)`. The board is in memory only. |
+| Close request (Alt+F4) on the task board | Prevent the close and hide the window. The receiver and the tray icon continue. |
+| Tray icon left click | Toggle the visibility. A parked window expands on the next show. |
+| Tray menu `Quit` | The same as the close button. |
+| Window hidden by the tray | Keep the geometry, the cards and the revision. Hide the detail window too. |
 | Click a card row | Show the full card in the `detail` window at once. A second click on the same row closes it. |
 | Hover a card row | Show the same panel after 280 ms. A pointer leave closes it. |
 | Both sides of the window have room | The panel goes to the left side. |
@@ -809,6 +846,7 @@ window opens, and it does not return for the same cards.
 2. Click the `×` button in the top-left corner.
 
 Expected: the program exits and the window closes. The receiver stops with it.
+The tray icon goes away.
 
 ### 9.12 Card detail panel
 
@@ -836,6 +874,33 @@ Expected for step 5: the panel opens and then closes on `Esc`.
 Expected for step 6: the panel opens on the right side of the window. The left
 side has no room, because the window is at the left screen edge.
 
+### 9.13 Tray icon and taskbar
+
+1. Start the program.
+2. Look at the taskbar. Look at the tray area. Click the arrow of the hidden
+   icons when the icon is not visible.
+3. Left click the tray icon. Left click it again.
+4. Right click the tray icon. Click `Quit`.
+5. Start the program again. Press Alt+F4 on the task board window.
+6. Left click the tray icon.
+7. Park the window. Left click the tray icon twice.
+
+Expected for step 2: the taskbar has no Pi Jingle button. The tray area has the
+icon with the tooltip `Pi Jingle - agent tasks`.
+
+Expected for step 3: the first click hides the window. The second click shows
+it again, and the list is the same.
+
+Expected for step 4: the program exits. The tray icon goes away.
+
+Expected for step 5: the window hides. The program and the tray icon continue.
+The receiver answers requests.
+
+Expected for step 6: the window shows again, with the same cards.
+
+Expected for step 7: the first click hides the parked window. The second click
+shows the full list, not the band.
+
 ## 10. Build, run, test
 
 ```text
@@ -855,22 +920,25 @@ Start-Process .\target\debug\pi-jingle-server.exe `
 
 The tests cover the map, the JSON parser, the title order, the start time
 order, the duration, the delete command, the snap geometry, the slide steps, the
-unseen-card tracker and the detail panel placement. The integration tests in
-`tests/taskboard.rs` use only the public API.
+unseen-card tracker, the detail panel placement, the tray icon bytes and the
+tray visibility toggle. The integration tests in `tests/taskboard.rs` use only
+the public API.
 
 ## 11. Platform support
 
-| Platform | Build | Window | Drag, park and slide | Status |
-|---|---|---|---|---|
-| Windows 10 and 11 | yes | yes | yes | Verified in this workspace. |
-| macOS | should build | should run | should work | Not verified here. Needs the Xcode command line tools. |
-| Linux with X11 | should build | should run | should work | Not verified here. Needs `webkit2gtk-4.1` and `libsoup-3.0`. |
-| Linux with Wayland | should build | should run | no | Wayland does not let a client place its own window. |
+| Platform | Build | Window | Tray icon | Drag, park and slide | Status |
+|---|---|---|---|---|---|
+| Windows 10 and 11 | yes | yes | yes | yes | Verified in this workspace. |
+| macOS | should build | should run | should work | should work | Not verified here. Needs the Xcode command line tools. |
+| Linux with X11 | should build | should run | should work | should work | Not verified here. Needs `webkit2gtk-4.1`, `libsoup-3.0` and `libayatana-appindicator3`. |
+| Linux with Wayland | should build | should run | should work | no | Wayland does not let a client place its own window. |
 
 Facts behind the table:
 
 - The task board module calls only public Tauri APIs. It has no Win32 call
   and no Windows crate.
+- Tauri draws the tray icon (`tray-icon` feature). On Linux the tray needs
+  `libayatana-appindicator3`. The tray code uses only public Tauri APIs.
 - The only platform attribute is `#![cfg_attr(all(windows, feature =
   "desktop"), windows_subsystem = "windows")]` in `src/main.rs`. On other
   platforms it has no effect.

@@ -68,6 +68,10 @@ The window has these features:
 - A status light in the band. When a card arrives while the window is parked,
   the light blinks every 450 ms. It stops when the user opens the window.
 - A close button in the top-left corner of the header. It exits the program.
+- No taskbar entry. The program has one tray icon instead. A left click on the
+  tray icon shows or hides the window. The tray menu shows or hides the window
+  and exits the program. A close request such as Alt+F4 hides the window and
+  keeps the receiver and the tray icon.
 - A card detail panel. A hover shows it after 280 ms; a click shows it at once
   and pins it. The panel is a second window, so it opens outside the task board
   window: left or right of it, at the height of the row. When both sides have
@@ -91,7 +95,8 @@ runtime on Windows. Windows 10 and Windows 11 include this runtime.
 
 ## Run
 
-The program starts the receiver and opens the task board window.
+The program starts the receiver, the tray icon and the task board window. The
+window has no taskbar entry. Use the tray icon to show or hide the window.
 
 ```bash
 cargo run            # receiver on 0.0.0.0:8080 and the window
@@ -105,9 +110,10 @@ Use the headless build when no window is necessary:
 cargo run --no-default-features
 ```
 
-On Windows the program does not open a console window. The window is the only
-visible part. Logs go to the terminal that started the program. Use a
-redirection to keep the log when you start the program from a script:
+On Windows the program does not open a console window. The window and the tray
+icon are the only visible parts. Logs go to the terminal that started the
+program. Use a redirection to keep the log when you start the program from a
+script:
 
 ```powershell
 Start-Process .\target\debug\pi-jingle-server.exe `

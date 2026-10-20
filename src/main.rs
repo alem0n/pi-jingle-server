@@ -1,7 +1,7 @@
 //! pi-jingle-server entry point.
 //!
 //! Default build (`desktop` feature): the HTTP receiver plus the Tauri task
-//! board window.
+//! board window and its tray icon.
 //!
 //! Headless build (`cargo build --no-default-features`): the HTTP receiver
 //! only, with no Tauri dependency.

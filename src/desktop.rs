@@ -6,13 +6,17 @@
 
 use std::sync::Arc;
 
-use pi_jingle_server::taskboard::window::{attach, ipc_handler, TaskboardWindow, WINDOW_LABEL};
+use pi_jingle_server::taskboard::window::{
+    attach, ipc_handler, is_quitting, set_board_visible, TaskboardWindow, WINDOW_LABEL,
+};
 use pi_jingle_server::taskboard::{AgentEvent, EventKind, SessionInput, TaskBoard};
 use pi_jingle_server::{
     port_from_args_or_env, serve, AppState, Notification, StoredEvent, EVENTS_PATH, NOTIFY_PATH,
 };
-use tauri::Manager;
+use tauri::{Manager, WindowEvent};
 use tokio::sync::broadcast;
+
+mod tray;
 
 /// Start the receiver, the bridge and the window.
 pub fn run() {
@@ -24,22 +28,42 @@ pub fn run() {
     spawn_bridge(state.subscribe(), board.clone());
 
     println!("pi-jingle-server listening on http://0.0.0.0:{port}");
-    println!("parsing POST {NOTIFY_PATH}; serving GET {EVENTS_PATH}; task board window is open");
+    println!(
+        "parsing POST {NOTIFY_PATH}; serving GET {EVENTS_PATH}; the task board has a tray icon and no taskbar entry"
+    );
 
     let ui = Arc::new(TaskboardWindow::new(board));
 
     let app = tauri::Builder::default()
         .manage(ui.clone())
         .invoke_handler(ipc_handler())
+        .on_window_event(|window, event| {
+            // The task board window has no taskbar entry. A close request
+            // (Alt+F4) hides the window and keeps the receiver and the tray
+            // icon. A quit from the header button or the tray menu sets the
+            // quitting flag first and is not stopped here.
+            let WindowEvent::CloseRequested { api, .. } = event else {
+                return;
+            };
+            if window.label() != WINDOW_LABEL || is_quitting() {
+                return;
+            }
+            api.prevent_close();
+            let app = window.app_handle();
+            if let Some(state) = app.try_state::<Arc<TaskboardWindow>>() {
+                set_board_visible(app, state.inner(), false);
+            }
+        })
         .setup(move |app| {
             let window = app
                 .get_webview_window(WINDOW_LABEL)
                 .ok_or("window 'taskboard' is missing from tauri.conf.json")?;
             attach(&window, &ui)?;
+            tray::create(app, ui.clone())?;
             Ok(())
         })
         .build(tauri::generate_context!())
-        .expect("failed to build the task board window");
+        .expect("failed to build the task board window and the tray icon");
 
     app.run(|_app_handle, _event| {});
 }

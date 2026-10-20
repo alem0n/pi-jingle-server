@@ -2,15 +2,47 @@
 
 Receiver server for [pi-jingle](../pi-jingle) remote event notifications.
 
-Current stage (MVP): an HTTP server that **receives and prints every request** to the command line — timestamp (epoch ms), peer address, method, path + query, headers, and body.
+It parses the one fixed endpoint the extension sends to (see
+[../pi-jingle/README.md — API Endpoints](../pi-jingle/README.md#api-endpoints)):
 
-It is the prototype counterpart of pi-jingle's planned `sounds-remote` block, which POSTs a fixed JSON payload to a fixed path:
+- `POST /api/jingle/notify`
+- `Content-Type: application/json`
+- Body:
+  ```json
+  {
+    "session_data": {
+      "session_id": "<uuid>|unknown",
+      "persisted": true,
+      "created_at": "2025-09-12T10:30:00.000Z|null",
+      "version": 3,
+      "cwd": "/home/user/project|null"
+    },
+    "event": "<name>",
+    "timestamp": <epoch ms>
+  }
+  ```
 
-```json
-{ "session_id": "...", "event": "agent_settled", "timestamp": 1757626496789 }
-```
+Only `session_data.session_id`, `event`, and `timestamp` are required; the
+other `session_data` fields are optional (may be absent or `null` on old
+extension versions).
 
-See [../pi-jingle/docs/remote-notifications.md](../pi-jingle/docs/remote-notifications.md) for the full design.
+Valid notifications are printed as one readable block per event — event name,
+its meaning, UTC time, session id, peer — and answered with `200 {"ok":true}`,
+the reply pi-jingle expects. Malformed requests are answered with a JSON error
+and logged with the reason:
+
+| Problem | Status |
+|---|---|
+| Bad JSON, missing/mistyped fields (e.g. non-integer timestamp) | `400` |
+| `event` not in the fixed event set (`agent_start`, `agent_settled`, `session_start`, `session_shutdown`, `turn_start`, `turn_end`, `tool_call`, `tool_result`) | `400` |
+| Missing/empty `session_data.session_id` | `400` |
+| Body larger than 1 MiB | `413` |
+| `Content-Type` other than `application/json` | `415` |
+| Non-`POST` on the notify path | `405` |
+
+Any other request (any method, any path) is still dumped verbatim — timestamp,
+peer, method, path, headers, body — so this also works as a generic
+"print every request" debug listener.
 
 ## Run
 
@@ -20,12 +52,25 @@ cargo run -- 3000    # custom port via arg
 JINGLE_PORT=3000 cargo run   # or via env var
 ```
 
-Then point a `sounds-remote` entry (once implemented) at this host, e.g. `127.0.0.1:8080`, or test manually:
+## Test
+
+Point a `sounds-remote` entry at this host, e.g. `192.168.1.50:8080`, or test
+manually:
 
 ```bash
 curl -X POST http://127.0.0.1:8080/api/jingle/notify \
   -H 'Content-Type: application/json' \
-  -d '{"session_id":"abc-123","event":"agent_settled","timestamp":1757626496789}'
+  -d '{"session_data":{"session_id":"abc-123"},"event":"agent_settled","timestamp":1757626496789}'
+# 200 {"ok":true}
+
+curl -X POST http://127.0.0.1:8080/api/jingle/notify \
+  -H 'Content-Type: application/json' \
+  -d '{"session_data":{"session_id":"abc-123"},"event":"agent_finished"}'
+# 400 {"ok":false,"error":"unknown event: agent_finished (...)"}
 ```
 
-Every request prints a full dump to stdout and gets `200 {"ok":true}` back.
+Unit tests for parsing, the event set, and epoch-ms→UTC conversion:
+
+```bash
+cargo test
+```

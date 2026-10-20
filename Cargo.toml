@@ -7,3 +7,6 @@ description = "Receiver server for pi-jingle remote event notifications"
 [dependencies]
 axum = "0.8"
 tokio = { version = "1", features = ["full"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+rodio = "0.20"

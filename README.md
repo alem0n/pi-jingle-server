@@ -45,6 +45,13 @@ Any other request (any method, any path) is still dumped verbatim — timestamp,
 peer, method, path, headers, body — so this also works as a generic
 "print every request" debug listener.
 
+## Build
+
+```bash
+cargo build           # debug build (target/debug/)
+cargo build --release # release build, optimized (target/release/)
+```
+
 ## Run
 
 ```bash

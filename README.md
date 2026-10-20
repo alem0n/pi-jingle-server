@@ -23,9 +23,9 @@ It parses the one fixed endpoint the extension sends to (see
   }
   ```
 
-Only `session_data.session_id`, `session_data.session_name`, `event`, and
-`timestamp` are required; the other `session_data` fields are optional (may
-be absent or `null` on old extension versions).
+Only `event` and `timestamp` are strictly required. Any `session_data` field
+that is missing or `null` (or `session_data` itself) is tolerated and shown
+as `Unknown` instead of being rejected.
 
 Valid notifications are printed as one readable block per event — event name,
 its meaning, UTC time, session id, peer — and answered with `200 {"ok":true}`,
@@ -36,7 +36,7 @@ and logged with the reason:
 |---|---|
 | Bad JSON, missing/mistyped fields (e.g. non-integer timestamp) | `400` |
 | `event` not in the fixed event set (`agent_start`, `agent_settled`, `session_start`, `session_shutdown`, `turn_start`, `turn_end`, `tool_call`, `tool_result`) | `400` |
-| Missing/empty `session_data.session_id` | `400` |
+| Empty `session_data.session_id` (empty string; missing/null becomes `Unknown`) | `400` |
 | Body larger than 1 MiB | `413` |
 | `Content-Type` other than `application/json` | `415` |
 | Non-`POST` on the notify path | `405` |

@@ -14,6 +14,8 @@
 //       "event": "<name>", "timestamp": <epoch ms>
 //     }
 //
+// Any session_data field that is missing or null is shown as "Unknown".
+//
 // Valid notifications are printed as one readable block per event (event,
 // meaning, UTC time, session id, peer) and answered with `200 {"ok":true}`,
 // the reply pi-jingle expects. Malformed requests (bad JSON, missing or
@@ -73,28 +75,80 @@ struct AppState {
 // versions do not break this receiver.
 #[derive(Deserialize)]
 struct Notification {
+    #[serde(default)]
     session_data: SessionData,
     event: String,
     timestamp: u64,
 }
 
+// Deserialization helpers: a field may be absent or null, in which case it
+// becomes the literal string "Unknown" instead of failing the request.
+mod de {
+    use serde::{Deserialize, Deserializer};
+    use std::fmt::Display;
+
+    pub fn unknown_string() -> String {
+        "Unknown".to_string()
+    }
+    pub fn unknown_bool() -> String {
+        "Unknown".to_string()
+    }
+    pub fn unknown_u64() -> String {
+        "Unknown".to_string()
+    }
+
+    fn from_option<'de, T, D>(d: D) -> Result<String, D::Error>
+    where
+        T: Deserialize<'de> + Display,
+        D: Deserializer<'de>,
+    {
+        Ok(Option::<T>::deserialize(d)?
+            .map(|v| v.to_string())
+            .unwrap_or_else(|| "Unknown".to_string()))
+    }
+
+    pub fn string_or_unknown<'de, D: Deserializer<'de>>(d: D) -> Result<String, D::Error> {
+        from_option::<String, D>(d)
+    }
+    pub fn bool_or_unknown<'de, D: Deserializer<'de>>(d: D) -> Result<String, D::Error> {
+        from_option::<bool, D>(d)
+    }
+    pub fn u64_or_unknown<'de, D: Deserializer<'de>>(d: D) -> Result<String, D::Error> {
+        from_option::<u64, D>(d)
+    }
+}
+
 // Session metadata as sent by pi-jingle (see
-// ../pi-jingle/docs/remote-notifications.md, section 6.2). `session_id` and
-// `session_name` are required; the other fields are optional and may be null
-// on old versions. They are parsed for completeness but not all are printed.
+// ../pi-jingle/docs/remote-notifications.md, section 6.2). Every field is
+// nullable: a missing or null value deserializes to the string "Unknown"
+// (persisted/version keep their typed shape as strings, e.g. "true"/"3").
 #[derive(Deserialize)]
-#[allow(dead_code)]
 struct SessionData {
+    #[serde(default = "de::unknown_string", deserialize_with = "de::string_or_unknown")]
     session_id: String,
-    #[serde(default)]
-    persisted: Option<bool>,
-    #[serde(default)]
-    created_at: Option<String>,
-    #[serde(default)]
-    version: Option<u64>,
-    #[serde(default)]
-    cwd: Option<String>,
+    #[serde(default = "de::unknown_bool", deserialize_with = "de::bool_or_unknown")]
+    persisted: String,
+    #[serde(default = "de::unknown_string", deserialize_with = "de::string_or_unknown")]
+    created_at: String,
+    #[serde(default = "de::unknown_u64", deserialize_with = "de::u64_or_unknown")]
+    version: String,
+    #[serde(default = "de::unknown_string", deserialize_with = "de::string_or_unknown")]
+    cwd: String,
+    #[serde(default = "de::unknown_string", deserialize_with = "de::string_or_unknown")]
     session_name: String,
+}
+
+impl Default for SessionData {
+    fn default() -> Self {
+        Self {
+            session_id: de::unknown_string(),
+            persisted: de::unknown_bool(),
+            created_at: de::unknown_string(),
+            version: de::unknown_u64(),
+            cwd: de::unknown_string(),
+            session_name: de::unknown_string(),
+        }
+    }
 }
 
 #[tokio::main]
@@ -212,7 +266,6 @@ async fn handle_notify(
             "session_data.session_id must not be empty",
         );
     }
-
     // Count this event so the output line shows the running total.
     let n = {
         let mut counts = state.counts.lock().unwrap();
@@ -233,9 +286,11 @@ async fn handle_notify(
     out.push_str(&format!("[what]    {what}\n"));
     out.push_str(&format!("[session] {}\n", note.session_data.session_id));
     out.push_str(&format!("[name]    {}\n", note.session_data.session_name));
-    if let Some(cwd) = &note.session_data.cwd {
-        out.push_str(&format!("[cwd]     {cwd}\n"));
-    }
+    out.push_str(&format!("[cwd]     {}\n", note.session_data.cwd));
+    out.push_str(&format!(
+        "[meta]    persisted={} created_at={} version={}\n",
+        note.session_data.persisted, note.session_data.created_at, note.session_data.version
+    ));
     out.push_str(&format!("[from]    {peer}\n"));
     println!("{out}");
 
@@ -396,44 +451,49 @@ mod tests {
             n.session_data.session_id,
             "7f3c9a2e-1b4d-4c8a-9e2f-3a1b2c3d4e5f"
         );
-        assert_eq!(n.session_data.persisted, Some(true));
-        assert_eq!(n.session_data.version, Some(3));
+        assert_eq!(n.session_data.persisted, "true");
+        assert_eq!(n.session_data.created_at, "2025-09-12T10:30:00.000Z");
+        assert_eq!(n.session_data.version, "3");
+        assert_eq!(n.session_data.cwd, "/home/user/project");
         assert_eq!(n.session_data.session_name, "Refactor auth module");
         assert_eq!(n.event, "agent_settled");
         assert_eq!(n.timestamp, 1757626496789);
     }
 
     #[test]
-    fn tolerates_partial_session_data() {
-        // Optional fields may be missing or null (old extension versions).
-        let json = br#"{"session_data":{"session_id":"unknown","session_name":"","persisted":null,"created_at":null,"version":null,"cwd":null},"event":"tool_call","timestamp":1}"#;
+    fn null_or_missing_session_fields_become_unknown() {
+        // Explicit nulls become "Unknown".
+        let json = br#"{"session_data":{"session_id":"unknown","session_name":"x","persisted":null,"created_at":null,"version":null,"cwd":null},"event":"tool_call","timestamp":1}"#;
         let n: Notification = serde_json::from_slice(json).unwrap();
-        assert_eq!(n.session_data.session_id, "unknown");
-        assert_eq!(n.session_data.cwd, None);
+        assert_eq!(n.session_data.persisted, "Unknown");
+        assert_eq!(n.session_data.created_at, "Unknown");
+        assert_eq!(n.session_data.version, "Unknown");
+        assert_eq!(n.session_data.cwd, "Unknown");
+
+        // Missing session_data (or missing fields) becomes "Unknown" too.
+        let n: Notification =
+            serde_json::from_slice(br#"{"event":"tool_call","timestamp":1}"#).unwrap();
+        assert_eq!(n.session_data.session_id, "Unknown");
+        assert_eq!(n.session_data.session_name, "Unknown");
     }
 
     #[test]
     fn rejects_missing_or_mistyped_fields() {
-        // timestamp + session_data missing
-        assert!(serde_json::from_slice::<Notification>(br#"{"event":"turn_end"}"#).is_err());
+        // timestamp + event missing
+        assert!(serde_json::from_slice::<Notification>(br#"{}"#).is_err());
         // timestamp is a string, not epoch ms
         assert!(serde_json::from_slice::<Notification>(
-            br#"{"session_data":{"session_id":"x"},"event":"turn_end","timestamp":"now"}"#
+            br#"{"session_data":{"session_id":"x","session_name":"y"},"event":"turn_end","timestamp":"now"}"#
         )
         .is_err());
         // negative timestamp is not a valid epoch ms
         assert!(serde_json::from_slice::<Notification>(
-            br#"{"session_data":{"session_id":"x"},"event":"turn_end","timestamp":-1}"#
+            br#"{"session_data":{"session_id":"x","session_name":"y"},"event":"turn_end","timestamp":-1}"#
         )
         .is_err());
-        // session_data.session_id missing
+        // a mistyped persisted (array) is rejected, not coerced
         assert!(serde_json::from_slice::<Notification>(
-            br#"{"session_data":{"session_name":"x"},"event":"turn_end","timestamp":1}"#
-        )
-        .is_err());
-        // session_data.session_name missing
-        assert!(serde_json::from_slice::<Notification>(
-            br#"{"session_data":{"session_id":"x"},"event":"turn_end","timestamp":1}"#
+            br#"{"session_data":{"persisted":[1]},"event":"turn_end","timestamp":1}"#
         )
         .is_err());
     }

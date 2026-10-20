@@ -15,16 +15,17 @@ It parses the one fixed endpoint the extension sends to (see
       "persisted": true,
       "created_at": "2025-09-12T10:30:00.000Z|null",
       "version": 3,
-      "cwd": "/home/user/project|null"
+      "cwd": "/home/user/project|null",
+      "session_name": "Refactor auth module"
     },
     "event": "<name>",
     "timestamp": <epoch ms>
   }
   ```
 
-Only `session_data.session_id`, `event`, and `timestamp` are required; the
-other `session_data` fields are optional (may be absent or `null` on old
-extension versions).
+Only `session_data.session_id`, `session_data.session_name`, `event`, and
+`timestamp` are required; the other `session_data` fields are optional (may
+be absent or `null` on old extension versions).
 
 Valid notifications are printed as one readable block per event — event name,
 its meaning, UTC time, session id, peer — and answered with `200 {"ok":true}`,

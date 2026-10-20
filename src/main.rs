@@ -10,7 +10,7 @@
 //     {
 //       "session_data": { "session_id": "<uuid>|unknown", "persisted": <bool>,
 //                          "created_at": "<ISO-8601>|null", "version": <n>|null,
-//                          "cwd": "<path>|null" },
+//                          "cwd": "<path>|null", "session_name": "<name>" },
 //       "event": "<name>", "timestamp": <epoch ms>
 //     }
 //
@@ -79,9 +79,9 @@ struct Notification {
 }
 
 // Session metadata as sent by pi-jingle (see
-// ../pi-jingle/docs/remote-notifications.md, section 6.2). Only `session_id`
-// is required; the other fields are optional and may be null on old versions.
-// They are parsed for completeness but not all are printed yet.
+// ../pi-jingle/docs/remote-notifications.md, section 6.2). `session_id` and
+// `session_name` are required; the other fields are optional and may be null
+// on old versions. They are parsed for completeness but not all are printed.
 #[derive(Deserialize)]
 #[allow(dead_code)]
 struct SessionData {
@@ -94,6 +94,7 @@ struct SessionData {
     version: Option<u64>,
     #[serde(default)]
     cwd: Option<String>,
+    session_name: String,
 }
 
 #[tokio::main]
@@ -231,6 +232,7 @@ async fn handle_notify(
     ));
     out.push_str(&format!("[what]    {what}\n"));
     out.push_str(&format!("[session] {}\n", note.session_data.session_id));
+    out.push_str(&format!("[name]    {}\n", note.session_data.session_name));
     if let Some(cwd) = &note.session_data.cwd {
         out.push_str(&format!("[cwd]     {cwd}\n"));
     }
@@ -388,7 +390,7 @@ mod tests {
 
     #[test]
     fn parses_valid_notification() {
-        let json = br#"{"session_data":{"session_id":"7f3c9a2e-1b4d-4c8a-9e2f-3a1b2c3d4e5f","persisted":true,"created_at":"2025-09-12T10:30:00.000Z","version":3,"cwd":"/home/user/project"},"event":"agent_settled","timestamp":1757626496789}"#;
+        let json = br#"{"session_data":{"session_id":"7f3c9a2e-1b4d-4c8a-9e2f-3a1b2c3d4e5f","persisted":true,"created_at":"2025-09-12T10:30:00.000Z","version":3,"cwd":"/home/user/project","session_name":"Refactor auth module"},"event":"agent_settled","timestamp":1757626496789}"#;
         let n: Notification = serde_json::from_slice(json).unwrap();
         assert_eq!(
             n.session_data.session_id,
@@ -396,6 +398,7 @@ mod tests {
         );
         assert_eq!(n.session_data.persisted, Some(true));
         assert_eq!(n.session_data.version, Some(3));
+        assert_eq!(n.session_data.session_name, "Refactor auth module");
         assert_eq!(n.event, "agent_settled");
         assert_eq!(n.timestamp, 1757626496789);
     }
@@ -403,7 +406,7 @@ mod tests {
     #[test]
     fn tolerates_partial_session_data() {
         // Optional fields may be missing or null (old extension versions).
-        let json = br#"{"session_data":{"session_id":"unknown","persisted":null,"created_at":null,"version":null,"cwd":null},"event":"tool_call","timestamp":1}"#;
+        let json = br#"{"session_data":{"session_id":"unknown","session_name":"","persisted":null,"created_at":null,"version":null,"cwd":null},"event":"tool_call","timestamp":1}"#;
         let n: Notification = serde_json::from_slice(json).unwrap();
         assert_eq!(n.session_data.session_id, "unknown");
         assert_eq!(n.session_data.cwd, None);
@@ -425,14 +428,19 @@ mod tests {
         .is_err());
         // session_data.session_id missing
         assert!(serde_json::from_slice::<Notification>(
-            br#"{"session_data":{},"event":"turn_end","timestamp":1}"#
+            br#"{"session_data":{"session_name":"x"},"event":"turn_end","timestamp":1}"#
+        )
+        .is_err());
+        // session_data.session_name missing
+        assert!(serde_json::from_slice::<Notification>(
+            br#"{"session_data":{"session_id":"x"},"event":"turn_end","timestamp":1}"#
         )
         .is_err());
     }
 
     #[test]
     fn ignores_unknown_fields() {
-        let json = br#"{"session_data":{"session_id":"unknown"},"event":"tool_call","timestamp":1,"extra":true}"#;
+        let json = br#"{"session_data":{"session_id":"unknown","session_name":"x"},"event":"tool_call","timestamp":1,"extra":true}"#;
         assert!(serde_json::from_slice::<Notification>(json).is_ok());
     }
 

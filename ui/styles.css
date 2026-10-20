@@ -1,0 +1,393 @@
+:root {
+  --bg: #0d1017;
+  --line: #1c2230;
+  --text: #e8ecf4;
+  --muted: #8d97aa;
+  --soft: #6f7a8e;
+  --accent: #9ecbff;
+  --danger: #ff7a8a;
+  --warn: #f0b26b;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-size: 12px;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+.shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* Title bar. The whole header is the drag handle. */
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(180deg, #141a26, #0d1017);
+  cursor: grab;
+}
+
+body.dragging .bar {
+  cursor: grabbing;
+}
+
+/* Close button in the top-left corner. */
+.close-button {
+  margin-right: 1px;
+}
+
+.close-button:hover {
+  color: #ffc4c4;
+  border-color: #6d3038;
+  background: #2a181d;
+}
+
+.brand {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.brand-text {
+  min-width: 0;
+}
+
+.logo {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #d6ecff, #4a8cff 72%);
+  box-shadow: 0 0 10px rgba(110, 168, 254, 0.75);
+}
+
+.heading {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 650;
+  letter-spacing: 0.2px;
+}
+
+.summary {
+  margin: 1px 0 0;
+  font-size: 10px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.icon-button {
+  flex: none;
+  width: 24px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #161d2a;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.icon-button:hover {
+  color: var(--text);
+  border-color: #2a3550;
+  background: #1a2334;
+}
+
+/* Card list: one vertical table. */
+.list {
+  flex: 1;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.list::-webkit-scrollbar-thumb {
+  background: #232c3d;
+  border-radius: 4px;
+}
+
+.empty {
+  padding: 34px 16px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.empty-title {
+  margin: 0 0 4px;
+  font-size: 12px;
+  color: #b6c0d2;
+}
+
+.empty-hint {
+  margin: 0;
+  font-size: 10.5px;
+}
+
+.thead,
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 80px 52px 22px;
+  gap: 8px;
+  align-items: center;
+  padding: 7px 12px;
+}
+
+.thead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding-top: 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg);
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--soft);
+}
+
+.thead span:nth-child(2),
+.thead span:nth-child(3) {
+  text-align: right;
+}
+
+.group-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 12px 4px;
+  color: var(--muted);
+  font-size: 10.5px;
+}
+
+.group-name {
+  color: #c3cbda;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chip {
+  flex: none;
+  height: 15px;
+  padding: 0 5px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #121826;
+  color: #7f8ba0;
+  font-size: 9px;
+  line-height: 13px;
+}
+
+.group-count {
+  margin-left: auto;
+  color: var(--soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.row {
+  min-height: 50px;
+  border-bottom: 1px solid var(--line);
+}
+
+.row:hover {
+  background: #111725;
+}
+
+.row:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* A row that shows its detail gets the same highlight as a hover. */
+.row.is-detailed {
+  background: #141c2c;
+}
+
+.cell-title {
+  min-width: 0;
+}
+
+.main {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sub {
+  display: block;
+  min-height: 12px;
+  margin-top: 2px;
+  font-size: 10px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.times {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.45;
+}
+
+.times .start {
+  display: block;
+  font-size: 10.5px;
+  color: #c8d1e2;
+}
+
+.times .request {
+  display: block;
+  font-size: 10px;
+  color: #7f8ba0;
+}
+
+.took {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-size: 10.5px;
+  color: #c8d1e2;
+}
+
+.took.anomaly {
+  color: var(--warn);
+}
+
+.del {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--soft);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.row:hover .del {
+  color: #93a0b8;
+}
+
+.del:hover {
+  color: var(--danger);
+  border-color: rgba(255, 122, 138, 0.35);
+  background: rgba(255, 122, 138, 0.08);
+}
+
+.foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 12px;
+  border-top: 1px solid var(--line);
+  background: #0b0e14;
+  font-size: 9.5px;
+  color: var(--soft);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Parked band. The window keeps its size and moves above the screen top
+   edge, so only the bottom band of the page stays visible. */
+body.is-parked .shell {
+  display: none;
+}
+
+.handle {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--band-height, 10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(
+    90deg,
+    #10151f,
+    #24304a 42%,
+    #3f6fb5 50%,
+    #24304a 58%,
+    #10151f
+  );
+  cursor: pointer;
+}
+
+/* The hidden attribute must win over the display above. */
+.handle[hidden] {
+  display: none;
+}
+
+/* Status light of the parked band. It is a lamp, not a scroll bar: idle is
+   dim, new cards make it blink, and it goes back to idle when the user opens
+   the window. The on and off states are set by app.js, so the light works when
+   the system has animations turned off. */
+.status-light {
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #3a6aa8, #cfe6ff 50%, #3a6aa8);
+  box-shadow: 0 0 8px rgba(120, 170, 255, 0.85);
+  transition:
+    opacity 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.status-light[data-state="idle"] {
+  opacity: 0.5;
+  box-shadow: 0 0 4px rgba(120, 170, 255, 0.55);
+}
+
+.status-light[data-state="on"] {
+  opacity: 1;
+  box-shadow:
+    0 0 10px rgba(140, 190, 255, 1),
+    0 0 18px rgba(90, 150, 255, 0.75);
+}
+
+.status-light[data-state="off"] {
+  opacity: 0.12;
+  box-shadow: none;
+}
+
+/* A faint glow on the band itself makes the blinking light easy to see from a
+   distance. */
+body.is-blinking .handle {
+  box-shadow: inset 0 0 10px rgba(90, 150, 255, 0.35);
+}

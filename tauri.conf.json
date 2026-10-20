@@ -1,0 +1,34 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "pi-jingle-taskboard",
+  "version": "0.1.0",
+  "identifier": "dev.pi.jingle.taskboard",
+  "build": {
+    "frontendDist": "./ui"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "taskboard",
+        "title": "Pi Jingle - Agent Tasks",
+        "width": 440,
+        "height": 580,
+        "resizable": true,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "visible": false,
+        "center": false,
+        "x": 60,
+        "y": 90,
+        "skipTaskbar": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:"
+    }
+  },
+  "bundle": {
+    "active": false
+  }
+}

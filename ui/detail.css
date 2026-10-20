@@ -1,0 +1,90 @@
+/* Card detail panel. This page runs in its own window, so the panel can sit
+   outside the task board window. The window is transparent and shows only the
+   panel plus its shadow. */
+
+:root {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  overflow: hidden;
+}
+
+body {
+  font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-size: 12px;
+  color: #e8ecf4;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+/* Padding around the panel, so the drop shadow is not cut off by the window. */
+.root {
+  display: inline-block;
+  padding: 10px;
+}
+
+.panel {
+  width: 320px;
+  max-height: 560px;
+  overflow: auto;
+  padding: 10px 12px;
+  border: 1px solid #2b3a55;
+  border-radius: 9px;
+  background: #0d1017;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.6);
+}
+
+.panel[hidden] {
+  display: none;
+}
+
+.panel-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.panel-session {
+  margin: 2px 0 8px;
+  font-size: 10px;
+  color: #8d97aa;
+  overflow-wrap: anywhere;
+}
+
+.panel-lines {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 3px 10px;
+  margin: 0;
+  font-size: 10.5px;
+}
+
+.panel-lines dt {
+  padding-top: 1px;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #6f7a8e;
+  white-space: nowrap;
+}
+
+.panel-lines dd {
+  margin: 0;
+  color: #c3cbda;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.panel-lines dd.warn {
+  color: #f0b26b;
+}

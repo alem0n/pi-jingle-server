@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pi Jingle - Agent Tasks</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div id="shell" class="shell">
+      <header id="drag-bar" class="bar">
+        <button
+          id="close-button"
+          class="icon-button close-button"
+          type="button"
+          title="Close Pi Jingle"
+          aria-label="Close Pi Jingle"
+        >&#10005;</button>
+        <div class="brand">
+          <span class="logo" aria-hidden="true"></span>
+          <div class="brand-text">
+            <h1 class="heading">Agent tasks</h1>
+            <p id="summary" class="summary">Waiting for agent_settled events</p>
+          </div>
+        </div>
+        <button
+          id="park-button"
+          class="icon-button"
+          type="button"
+          title="Move the window above the screen top edge"
+          aria-label="Move the window above the screen top edge"
+        >&#8963;</button>
+      </header>
+
+      <main id="list" class="list" aria-live="polite">
+        <div class="empty">
+          <p class="empty-title">No finished tasks yet</p>
+          <p class="empty-hint">Each agent_settled event adds one card here.</p>
+        </div>
+      </main>
+
+      <footer class="foot">
+        <span id="status-left">—</span>
+        <span id="status-right"></span>
+      </footer>
+    </div>
+
+    <div
+      id="handle"
+      class="handle"
+      role="button"
+      tabindex="0"
+      aria-label="Move the task board back into the screen"
+      hidden
+    >
+      <span
+        id="status-light"
+        class="status-light"
+        data-state="idle"
+        role="img"
+        aria-label="No new tasks"
+      ></span>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
